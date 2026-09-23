@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenAPI → .d.ts</title>
+  <style>
+    :root {
+      --bg: #f6f7f9; --panel: #ffffff; --text: #1b1f24; --muted: #5b6470;
+      --border: #d9dde3; --accent: #2f6fdb; --accent-text: #ffffff;
+      --code-bg: #f0f2f5; --error: #b42318; --error-bg: #fdecea;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111418; --panel: #1a1e24; --text: #e6e9ee; --muted: #9aa3ad;
+        --border: #2d333b; --accent: #5b93f0; --accent-text: #0b0e12;
+        --code-bg: #0d1014; --error: #ff8a80; --error-bg: #3a1a1a;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text);
+      font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    main { max-width: 1100px; margin: 0 auto; padding: 32px 16px 48px; }
+    h1 { font-size: 1.5rem; margin: 0 0 4px; }
+    .sub { color: var(--muted); margin: 0 0 24px; }
+    form, .result { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+    label.field { display: block; font-weight: 600; margin-bottom: 6px; }
+    .row { display: flex; gap: 8px; }
+    input[type=url], textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
+      background: var(--bg); color: var(--text); font: inherit; }
+    textarea { font-family: ui-monospace, Consolas, monospace; font-size: 13px; min-height: 56px; resize: vertical; }
+    input:focus-visible, textarea:focus-visible, button:focus-visible, summary:focus-visible {
+      outline: 2px solid var(--accent); outline-offset: 2px; }
+    button { padding: 10px 18px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent);
+      color: var(--accent-text); font: inherit; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    button.secondary { background: transparent; color: var(--accent); }
+    button:disabled { opacity: .6; cursor: progress; }
+    details { margin-top: 16px; }
+    summary { cursor: pointer; font-weight: 600; }
+    .options { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px 16px; margin-top: 12px; }
+    .options label { display: flex; gap: 8px; align-items: flex-start; }
+    .options small { color: var(--muted); display: block; }
+    .hint { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+    .error { margin-top: 16px; padding: 12px; border-radius: 8px; background: var(--error-bg); color: var(--error); }
+    .result { margin-top: 20px; }
+    .result header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .meta { color: var(--muted); font-size: 14px; }
+    .meta strong { color: var(--text); }
+    .badge { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--border); margin-left: 6px; }
+    .actions { display: flex; gap: 8px; }
+    pre { margin: 0; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px;
+      overflow: auto; max-height: 65vh; font: 12.5px/1.5 ui-monospace, Consolas, monospace; }
+    .examples { font-size: 13px; color: var(--muted); margin-top: 8px; }
+    .examples button { padding: 0; border: 0; background: none; color: var(--accent); font-weight: 400; text-decoration: underline; }
+    @media (max-width: 600px) { .row { flex-direction: column; } }
+  </style>
+</head>
+<body>
+<main>
+  <h1>OpenAPI → déclarations TypeScript</h1>
+  <p class="sub">Collez l'URL d'un <code>swagger.json</code> / <code>openapi.json</code> (ou YAML). Swagger 2.0 est converti automatiquement.</p>
+
+  <form id="form">
+    <label class="field" for="url">URL de la spécification</label>
+    <div class="row">
+      <input id="url" type="url" required placeholder="https://petstore3.swagger.io/api/v3/openapi.json" />
+      <button id="submit" type="submit">Générer</button>
+    </div>
+    <p class="examples">Exemples :
+      <button type="button" data-url="https://petstore3.swagger.io/api/v3/openapi.json">Petstore v3</button> ·
+      <button type="button" data-url="https://petstore.swagger.io/v2/swagger.json">Petstore v2 (Swagger 2.0)</button>
+    </p>
+
+    <details>
+      <summary>Options de génération</summary>
+      <div class="options" id="options">
+        <label><input type="checkbox" name="enum" /> <span>Enums TypeScript<small><code>enum</code> au lieu d'unions de littéraux</small></span></label>
+        <label><input type="checkbox" name="exportType" /> <span>Utiliser <code>type</code><small>au lieu de <code>interface</code></small></span></label>
+        <label><input type="checkbox" name="rootTypes" /> <span>Types de premier niveau<small><code>export type SchemaPet = …</code></small></span></label>
+        <label><input type="checkbox" name="immutable" /> <span>Immuable<small>propriétés <code>readonly</code></small></span></label>
+        <label><input type="checkbox" name="alphabetize" /> <span>Tri alphabétique</span></label>
+        <label><input type="checkbox" name="additionalProperties" /> <span>Propriétés supplémentaires<small>index <code>[key: string]: unknown</code></small></span></label>
+        <label><input type="checkbox" name="defaultNonNullable" checked /> <span>Défaut ⇒ non-nullable<small>champs avec valeur par défaut requis</small></span></label>
+        <label><input type="checkbox" name="propertiesRequiredByDefault" /> <span>Propriétés requises par défaut</span></label>
+        <label><input type="checkbox" name="excludeDeprecated" /> <span>Exclure le déprécié</span></label>
+        <label><input type="checkbox" name="pathParamsAsTypes" /> <span>Paramètres de chemin typés<small><code>/users/${string}</code></small></span></label>
+        <label><input type="checkbox" name="arrayLength" /> <span>Longueur des tableaux<small>tuples via minItems/maxItems</small></span></label>
+      </div>
+      <label class="field" for="headers" style="margin-top:16px">En-têtes HTTP (optionnel)</label>
+      <textarea id="headers" placeholder="Authorization: Bearer xxx"></textarea>
+      <p class="hint">Un en-tête par ligne, au format <code>Nom: valeur</code>. Utile pour les spécifications protégées.</p>
+    </details>
+
+    <div id="error" class="error" role="alert" hidden></div>
+  </form>
+
+  <section id="result" class="result" hidden aria-live="polite">
+    <header>
+      <div class="meta" id="meta"></div>
+      <div class="actions">
+        <button type="button" class="secondary" id="copy">Copier</button>
+        <button type="button" id="download">Télécharger</button>
+      </div>
+    </header>
+    <pre><code id="code"></code></pre>
+  </section>
+</main>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const form = $("form"), urlInput = $("url"), submit = $("submit"), errorBox = $("error");
+  let last = null;
+
+  try { urlInput.value = localStorage.getItem("openapi-dts:url") || ""; } catch {}
+
+  document.querySelectorAll("[data-url]").forEach((b) =>
+    b.addEventListener("click", () => { urlInput.value = b.dataset.url; urlInput.focus(); }));
+
+  function parseHeaders(text) {
+    const headers = {};
+    for (const line of text.split("\n")) {
+      const i = line.indexOf(":");
+      if (i > 0) headers[line.slice(0, i).trim()] = line.slice(i + 1).trim();
+    }
+    return headers;
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    errorBox.hidden = true;
+    submit.disabled = true;
+    submit.textContent = "Génération…";
+    const options = {};
+    document.querySelectorAll("#options input[type=checkbox]").forEach((c) => (options[c.name] = c.checked));
+    try {
+      try { localStorage.setItem("openapi-dts:url", urlInput.value); } catch {}
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: urlInput.value, options, headers: parseHeaders($("headers").value) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur inconnue");
+      last = data;
+      const title = document.createElement("strong");
+      title.textContent = `${data.title} ${data.apiVersion}`;
+      const badge = document.createElement("span");
+      badge.className = "badge";
+      badge.textContent = data.converted ? `Swagger ${data.specVersion} → OpenAPI 3` : `OpenAPI ${data.specVersion}`;
+      const stats = document.createElement("div");
+      stats.textContent = `${data.stats.paths} chemins · ${data.stats.schemas} schémas · ${data.stats.lines} lignes → ${data.suggestedFileName}`;
+      $("meta").replaceChildren(title, badge, stats);
+      $("code").textContent = data.code;
+      $("result").hidden = false;
+    } catch (err) {
+      errorBox.textContent = err.message;
+      errorBox.hidden = false;
+      $("result").hidden = true;
+    } finally {
+      submit.disabled = false;
+      submit.textContent = "Générer";
+    }
+  });
+
+  $("copy").addEventListener("click", async () => {
+    if (!last) return;
+    await navigator.clipboard.writeText(last.code);
+    $("copy").textContent = "Copié ✔";
+    setTimeout(() => ($("copy").textContent = "Copier"), 1500);
+  });
+
+  $("download").addEventListener("click", () => {
+    if (!last) return;
+    const blob = new Blob([last.code], { type: "text/plain" });
+    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: last.suggestedFileName });
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+</script>
+</body>
+</html>

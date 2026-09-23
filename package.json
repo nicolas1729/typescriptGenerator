@@ -1,0 +1,44 @@
+{
+  "name": "openapi-dts",
+  "version": "1.0.0",
+  "description": "Génère des déclarations TypeScript (.d.ts) depuis l’URL d’un Swagger / OpenAPI, via openapi-typescript",
+  "scripts": {
+    "build": "tsc",
+    "gen": "tsx src/cli.ts",
+    "serve": "tsx src/cli.ts serve",
+    "start": "node dist/cli.js serve",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts"
+  },
+  "keywords": [
+    "openapi",
+    "swagger",
+    "typescript",
+    "d.ts",
+    "codegen"
+  ],
+  "author": "",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "openapi-typescript": "^7.13.0",
+    "swagger2openapi": "^7.0.8",
+    "typescript": "^5.9.3",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "@types/swagger2openapi": "^7.0.4",
+    "tsx": "^4.23.15"
+  },
+  "bin": {
+    "openapi-dts": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "public"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}
