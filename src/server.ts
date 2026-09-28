@@ -1,10 +1,11 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { generate, type GenerateOptions } from "./generate.js";
+import { generate, type GenerateOptions, type SpecContent } from "./generate.js";
 
 const INDEX_HTML = fileURLToPath(new URL("../public/index.html", import.meta.url));
-const MAX_BODY = 64 * 1024;
+// Assez large pour importer de grosses spécifications (plusieurs Mo).
+const MAX_BODY = 20 * 1024 * 1024;
 
 const BOOLEAN_OPTIONS = [
   "enum",
@@ -44,10 +45,18 @@ async function handleGenerate(req: IncomingMessage, res: ServerResponse): Promis
     return sendJson(res, 400, { error: "Corps JSON invalide." });
   }
 
-  const url = typeof payload?.url === "string" ? payload.url.trim() : "";
-  // L'interface web n'accepte que des URL http(s) : pas de lecture de fichiers locaux depuis le navigateur.
-  if (!/^https?:\/\//i.test(url)) {
-    return sendJson(res, 400, { error: "Veuillez saisir une URL http(s) valide." });
+  let input: string | SpecContent;
+  if (typeof payload?.content === "string") {
+    // Fichier importé depuis le navigateur : son contenu est transmis tel quel.
+    if (!payload.content.trim()) return sendJson(res, 400, { error: "Le fichier importé est vide." });
+    input = { content: payload.content, fileName: typeof payload.fileName === "string" ? payload.fileName : undefined };
+  } else {
+    const url: string = typeof payload?.url === "string" ? payload.url.trim() : "";
+    // Les URL doivent être en http(s) : pas de lecture de fichiers du serveur via un chemin ou file://.
+    if (!/^https?:\/\//i.test(url)) {
+      return sendJson(res, 400, { error: "Veuillez saisir une URL http(s) valide." });
+    }
+    input = url;
   }
 
   const options: GenerateOptions = {};
@@ -62,7 +71,7 @@ async function handleGenerate(req: IncomingMessage, res: ServerResponse): Promis
   }
 
   try {
-    sendJson(res, 200, await generate(url, options));
+    sendJson(res, 200, await generate(input, options));
   } catch (err) {
     sendJson(res, 422, { error: err instanceof Error ? err.message : String(err) });
   }

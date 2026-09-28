@@ -58,18 +58,25 @@ export function toSourceUrl(input: string): URL {
   return pathToFileURL(trimmed);
 }
 
-async function loadDocument(source: URL, headers: Record<string, string> = {}): Promise<AnyDoc> {
-  let text: string;
-  if (source.protocol === "file:") {
-    text = await readFile(source, "utf8");
-  } else {
-    const res = await fetch(source, {
-      headers: { Accept: "application/json, application/yaml;q=0.9, */*;q=0.5", ...headers },
-    });
-    if (!res.ok) throw new Error(`Échec du téléchargement (${res.status} ${res.statusText}) : ${source.href}`);
-    text = await res.text();
-  }
+/** Contenu brut d'une spécification (ex. fichier importé depuis l'interface web). */
+export interface SpecContent {
+  /** Texte JSON ou YAML */
+  content: string;
+  /** Nom du fichier d'origine, utilisé à défaut de `info.title` */
+  fileName?: string;
+}
 
+async function fetchText(source: URL, headers: Record<string, string> = {}): Promise<string> {
+  if (source.protocol === "file:") return readFile(source, "utf8");
+  const res = await fetch(source, {
+    headers: { Accept: "application/json, application/yaml;q=0.9, */*;q=0.5", ...headers },
+  });
+  if (!res.ok) throw new Error(`Échec du téléchargement (${res.status} ${res.statusText}) : ${source.href}`);
+  return res.text();
+}
+
+/** Analyse un texte JSON ou YAML et vérifie qu'il s'agit bien d'une spécification Swagger/OpenAPI. */
+export function parseDocument(text: string): AnyDoc {
   let doc: unknown;
   try {
     doc = JSON.parse(text);
@@ -100,13 +107,14 @@ function slugify(value: string): string {
 }
 
 /**
- * Récupère un document Swagger 2.0 / OpenAPI 3.x (JSON ou YAML) et génère
- * les déclarations TypeScript correspondantes avec openapi-typescript.
+ * Génère les déclarations TypeScript d'un document Swagger 2.0 / OpenAPI 3.x (JSON ou YAML)
+ * avec openapi-typescript. L'entrée est une URL, un chemin local, ou un contenu brut.
  */
-export async function generate(input: string, options: GenerateOptions = {}): Promise<GenerateResult> {
+export async function generate(input: string | SpecContent, options: GenerateOptions = {}): Promise<GenerateResult> {
   const { headers, ...tsOptions } = options;
-  const source = toSourceUrl(input);
-  const original = await loadDocument(source, headers);
+  // Un contenu brut n'a pas d'emplacement : ses éventuelles $ref externes relatives ne peuvent pas être résolues.
+  const source = typeof input === "string" ? toSourceUrl(input) : undefined;
+  const original = parseDocument(typeof input === "string" ? await fetchText(source!, headers) : input.content);
 
   let schema: OpenAPI3;
   let converted = false;
@@ -117,8 +125,8 @@ export async function generate(input: string, options: GenerateOptions = {}): Pr
     const out = await swagger2openapi.convertObj(original as any, {
       patch: true,
       warnOnly: true,
-      resolve: true,
-      source: source.href,
+      resolve: Boolean(source),
+      ...(source && { source: source.href }),
     });
     schema = out.openapi as unknown as OpenAPI3;
     converted = true;
@@ -129,11 +137,11 @@ export async function generate(input: string, options: GenerateOptions = {}): Pr
   const openapiOptions: OpenAPITSOptions = { silent: true, ...tsOptions };
   // Passer l'URL permet à openapi-typescript de résoudre les $ref externes relatives,
   // mais uniquement quand il n'y a ni en-têtes à transmettre ni document converti.
-  const useUrl = !converted && !headers;
-  const ast = await openapiTS(useUrl ? source : schema, openapiOptions);
+  const ast = await openapiTS(source && !converted && !headers ? source : schema, openapiOptions);
   const code = astToString(ast);
 
-  const title = String(original.info?.title ?? "api");
+  const fallbackName = typeof input === "string" ? "api" : (input.fileName ?? "api").replace(/\.(json|ya?ml)$/i, "");
+  const title = String(original.info?.title ?? fallbackName);
   return {
     code,
     title,

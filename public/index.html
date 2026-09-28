@@ -25,7 +25,6 @@
     .sub { color: var(--muted); margin: 0 0 24px; }
     form, .result { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
     label.field { display: block; font-weight: 600; margin-bottom: 6px; }
-    .row { display: flex; gap: 8px; }
     input[type=url], textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
       background: var(--bg); color: var(--text); font: inherit; }
     textarea { font-family: ui-monospace, Consolas, monospace; font-size: 13px; min-height: 56px; resize: vertical; }
@@ -52,24 +51,52 @@
       overflow: auto; max-height: 65vh; font: 12.5px/1.5 ui-monospace, Consolas, monospace; }
     .examples { font-size: 13px; color: var(--muted); margin-top: 8px; }
     .examples button { padding: 0; border: 0; background: none; color: var(--accent); font-weight: 400; text-decoration: underline; }
-    @media (max-width: 600px) { .row { flex-direction: column; } }
+    .modes { border: 0; padding: 0; margin: 0 0 16px; display: flex; flex-wrap: wrap; gap: 8px; }
+    .modes label { display: flex; gap: 6px; align-items: center; padding: 6px 14px; border: 1px solid var(--border);
+      border-radius: 99px; cursor: pointer; }
+    .modes label:has(input:checked) { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+    .modes label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .modes input { accent-color: var(--accent); }
+    .dropzone { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 28px 16px; text-align: center;
+      border: 2px dashed var(--border); border-radius: 10px; background: var(--bg); color: var(--muted); cursor: pointer; }
+    .dropzone strong { color: var(--text); word-break: break-all; }
+    .dropzone.over, .dropzone:has(input:focus-visible) { border-color: var(--accent); }
+    .dropzone input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+    .submit-row { margin-top: 16px; }
+    .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   </style>
 </head>
 <body>
 <main>
   <h1>OpenAPI → déclarations TypeScript</h1>
-  <p class="sub">Collez l'URL d'un <code>swagger.json</code> / <code>openapi.json</code> (ou YAML). Swagger 2.0 est converti automatiquement.</p>
+  <p class="sub">À partir de l'URL ou d'un fichier <code>swagger.json</code> / <code>openapi.yaml</code>. Swagger 2.0 est converti automatiquement.</p>
 
   <form id="form">
-    <label class="field" for="url">URL de la spécification</label>
-    <div class="row">
+    <fieldset class="modes">
+      <legend class="visually-hidden">Source de la spécification</legend>
+      <label><input type="radio" name="mode" value="url" checked /> Depuis une URL</label>
+      <label><input type="radio" name="mode" value="file" /> Depuis un fichier</label>
+    </fieldset>
+
+    <div id="mode-url">
+      <label class="field" for="url">URL de la spécification</label>
       <input id="url" type="url" required placeholder="https://petstore3.swagger.io/api/v3/openapi.json" />
-      <button id="submit" type="submit">Générer</button>
+      <p class="examples">Exemples :
+        <button type="button" data-url="https://petstore3.swagger.io/api/v3/openapi.json">Petstore v3</button> ·
+        <button type="button" data-url="https://petstore.swagger.io/v2/swagger.json">Petstore v2 (Swagger 2.0)</button>
+      </p>
     </div>
-    <p class="examples">Exemples :
-      <button type="button" data-url="https://petstore3.swagger.io/api/v3/openapi.json">Petstore v3</button> ·
-      <button type="button" data-url="https://petstore.swagger.io/v2/swagger.json">Petstore v2 (Swagger 2.0)</button>
-    </p>
+
+    <div id="mode-file" hidden>
+      <span class="field">Fichier de spécification</span>
+      <label class="dropzone" id="dropzone" for="file">
+        <input id="file" type="file" accept=".json,.yaml,.yml,application/json,application/yaml,text/yaml" />
+        <strong id="file-label">Déposez un fichier .json, .yaml ou .yml ici</strong>
+        <span>ou cliquez pour parcourir</span>
+      </label>
+    </div>
+
+    <div class="submit-row"><button id="submit" type="submit">Générer</button></div>
 
     <details>
       <summary>Options de génération</summary>
@@ -109,9 +136,42 @@
 <script>
   const $ = (id) => document.getElementById(id);
   const form = $("form"), urlInput = $("url"), submit = $("submit"), errorBox = $("error");
+  const fileInput = $("file"), dropzone = $("dropzone"), fileLabel = $("file-label");
   let last = null;
+  let selectedFile = null;
 
   try { urlInput.value = localStorage.getItem("openapi-dts:url") || ""; } catch {}
+
+  const currentMode = () => form.querySelector("input[name=mode]:checked").value;
+  function applyMode() {
+    const isUrl = currentMode() === "url";
+    $("mode-url").hidden = !isUrl;
+    $("mode-file").hidden = isUrl;
+    urlInput.required = isUrl;
+    try { localStorage.setItem("openapi-dts:mode", currentMode()); } catch {}
+  }
+  try {
+    const saved = localStorage.getItem("openapi-dts:mode");
+    if (saved) form.querySelector(`input[name=mode][value=${saved === "file" ? "file" : "url"}]`).checked = true;
+  } catch {}
+  form.querySelectorAll("input[name=mode]").forEach((r) => r.addEventListener("change", applyMode));
+  applyMode();
+
+  function selectFile(file) {
+    if (!file) return;
+    if (!/\.(json|ya?ml)$/i.test(file.name)) {
+      errorBox.textContent = `« ${file.name} » n'est pas un fichier .json, .yaml ou .yml.`;
+      errorBox.hidden = false;
+      return;
+    }
+    errorBox.hidden = true;
+    selectedFile = file;
+    fileLabel.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} Ko)`;
+  }
+  fileInput.addEventListener("change", () => selectFile(fileInput.files[0]));
+  ["dragenter", "dragover"].forEach((t) => dropzone.addEventListener(t, (e) => { e.preventDefault(); dropzone.classList.add("over"); }));
+  ["dragleave", "drop"].forEach((t) => dropzone.addEventListener(t, () => dropzone.classList.remove("over")));
+  dropzone.addEventListener("drop", (e) => { e.preventDefault(); selectFile(e.dataTransfer.files[0]); });
 
   document.querySelectorAll("[data-url]").forEach((b) =>
     b.addEventListener("click", () => { urlInput.value = b.dataset.url; urlInput.focus(); }));
@@ -133,11 +193,18 @@
     const options = {};
     document.querySelectorAll("#options input[type=checkbox]").forEach((c) => (options[c.name] = c.checked));
     try {
-      try { localStorage.setItem("openapi-dts:url", urlInput.value); } catch {}
+      let source;
+      if (currentMode() === "file") {
+        if (!selectedFile) throw new Error("Choisissez d'abord un fichier .json, .yaml ou .yml.");
+        source = { content: await selectedFile.text(), fileName: selectedFile.name };
+      } else {
+        try { localStorage.setItem("openapi-dts:url", urlInput.value); } catch {}
+        source = { url: urlInput.value };
+      }
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: urlInput.value, options, headers: parseHeaders($("headers").value) }),
+        body: JSON.stringify({ ...source, options, headers: parseHeaders($("headers").value) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erreur inconnue");

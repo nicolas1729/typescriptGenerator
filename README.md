@@ -6,7 +6,8 @@ en s'appuyant sur [openapi-typescript](https://openapi-ts.dev/) v7.
 - **Swagger 2.0 accepté** : converti automatiquement en OpenAPI 3 (via `swagger2openapi`), car openapi-typescript v7 ne gère que OpenAPI 3.x.
 - **Deux usages** : une CLI, et une interface web locale (aperçu, copie, téléchargement).
 - **Spécifications protégées** : en-têtes HTTP personnalisés (`Authorization`, etc.).
-- URL `http(s)`, `file://` ou chemin local (CLI uniquement).
+- **Trois sources** : URL `http(s)`, fichier `.json` / `.yaml` / `.yml` importé dans l'interface web
+  (sélection ou glisser-déposer), ou chemin local / `file://` en CLI.
 
 ## Installation
 
@@ -55,7 +56,9 @@ npm run serve          # dev (tsx), http://localhost:3000
 npm start              # après build
 ```
 
-Saisissez l'URL, cochez les options, puis copiez ou téléchargez le résultat. Le serveur écoute uniquement sur
+Choisissez **Depuis une URL** ou **Depuis un fichier** (sélection ou glisser-déposer d'un `.json`, `.yaml` ou `.yml`),
+cochez les options, puis copiez ou téléchargez le résultat. Pour un fichier importé, les `$ref` vers d'autres
+fichiers ne peuvent pas être résolues : utilisez alors la CLI avec le chemin du fichier. Le serveur écoute uniquement sur
 `127.0.0.1`, car il télécharge les URL qu'on lui donne.
 
 ## Utiliser les types générés
@@ -75,6 +78,8 @@ Pour un client HTTP typé à partir de ces types, voir [`openapi-fetch`](https:/
 import { generate } from "./src/generate.js";
 
 const { code, suggestedFileName, stats } = await generate("https://…/swagger.json", { rootTypes: true });
+// ou à partir d'un contenu déjà chargé :
+const result = await generate({ content: yamlText, fileName: "api.yaml" });
 ```
 
 ## Tests
