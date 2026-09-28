@@ -94,6 +94,7 @@
         <strong id="file-label">Déposez un fichier .json, .yaml ou .yml ici</strong>
         <span>ou cliquez pour parcourir</span>
       </label>
+      <p class="hint">Le fichier est traité dans votre navigateur : son contenu n'est envoyé à aucun serveur.</p>
     </div>
 
     <div class="submit-row"><button id="submit" type="submit">Générer</button></div>
@@ -176,6 +177,16 @@
   document.querySelectorAll("[data-url]").forEach((b) =>
     b.addEventListener("click", () => { urlInput.value = b.dataset.url; urlInput.focus(); }));
 
+  // Générateur embarqué (~1,3 Mo compressé), chargé seulement au premier import de fichier.
+  let generatorPromise = null;
+  function loadGenerator() {
+    generatorPromise ??= import("./generator.js").catch((err) => {
+      generatorPromise = null;
+      throw new Error(`Impossible de charger le générateur local (generator.js) : ${err.message}`);
+    });
+    return generatorPromise;
+  }
+
   function parseHeaders(text) {
     const headers = {};
     for (const line of text.split("\n")) {
@@ -193,21 +204,22 @@
     const options = {};
     document.querySelectorAll("#options input[type=checkbox]").forEach((c) => (options[c.name] = c.checked));
     try {
-      let source;
+      let data;
       if (currentMode() === "file") {
         if (!selectedFile) throw new Error("Choisissez d'abord un fichier .json, .yaml ou .yml.");
-        source = { content: await selectedFile.text(), fileName: selectedFile.name };
+        // Génération locale : le contenu du fichier n'est jamais envoyé au serveur.
+        const content = await selectedFile.text();
+        data = await (await loadGenerator()).generateFromContent({ content, fileName: selectedFile.name }, options);
       } else {
         try { localStorage.setItem("openapi-dts:url", urlInput.value); } catch {}
-        source = { url: urlInput.value };
+        const res = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: urlInput.value, options, headers: parseHeaders($("headers").value) }),
+        });
+        data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Erreur inconnue");
       }
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...source, options, headers: parseHeaders($("headers").value) }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Erreur inconnue");
       last = data;
       const title = document.createElement("strong");
       title.textContent = `${data.title} ${data.apiVersion}`;

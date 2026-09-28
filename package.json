@@ -3,12 +3,13 @@
   "version": "1.0.0",
   "description": "Génère des déclarations TypeScript (.d.ts) depuis l’URL d’un Swagger / OpenAPI, via openapi-typescript",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run build:web",
     "gen": "tsx src/cli.ts",
-    "serve": "tsx src/cli.ts serve",
+    "serve": "npm run build:web && tsx src/cli.ts serve",
     "start": "node dist/cli.js serve",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test test/*.test.ts"
+    "test": "tsx --test test/*.test.ts",
+    "build:web": "node scripts/build-web.mjs"
   },
   "keywords": [
     "openapi",
@@ -32,6 +33,7 @@
     "@types/node": "^26.6.2",
     "@types/swagger2openapi": "^7.0.4",
     "@vercel/node": "^16.0.1",
+    "esbuild": "^0.28.2",
     "tsx": "^4.23.15"
   },
   "bin": {

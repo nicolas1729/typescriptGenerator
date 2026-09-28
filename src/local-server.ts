@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 import { generate, type GenerateOptions, type SpecContent } from "./generate.js";
 
 const INDEX_HTML = fileURLToPath(new URL("../public/index.html", import.meta.url));
+// Générateur navigateur, produit par `npm run build:web`.
+const GENERATOR_JS = fileURLToPath(new URL("../public/generator.js", import.meta.url));
 // Assez large pour importer de grosses spécifications (plusieurs Mo).
 const MAX_BODY = 20 * 1024 * 1024;
 
@@ -83,6 +85,11 @@ export function startServer(port = 3000, host = "127.0.0.1"): Promise<void> {
       if (req.method === "GET" && (req.url === "/" || req.url === "/index.html")) {
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
         res.end(await readFile(INDEX_HTML));
+        return;
+      }
+      if (req.method === "GET" && req.url === "/generator.js") {
+        res.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8" });
+        res.end(await readFile(GENERATOR_JS));
         return;
       }
       if (req.method === "POST" && req.url === "/api/generate") {

@@ -7,53 +7,7 @@ import { join } from "node:path";
 import ts from "typescript";
 import { stringify as stringifyYaml } from "yaml";
 import { generate } from "../src/generate.js";
-
-const openapi3 = {
-  openapi: "3.0.3",
-  info: { title: "Démo Boutique", version: "1.2.0" },
-  paths: {
-    "/pets/{id}": {
-      get: {
-        operationId: "getPet",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
-        responses: {
-          "200": { description: "ok", content: { "application/json": { schema: { $ref: "#/components/schemas/Pet" } } } },
-        },
-      },
-    },
-  },
-  components: {
-    schemas: {
-      Pet: {
-        type: "object",
-        required: ["id", "name"],
-        properties: {
-          id: { type: "integer" },
-          name: { type: "string" },
-          status: { type: "string", enum: ["available", "sold"] },
-        },
-      },
-    },
-  },
-};
-
-const swagger2 = {
-  swagger: "2.0",
-  info: { title: "Legacy", version: "0.1" },
-  host: "example.com",
-  basePath: "/v1",
-  paths: {
-    "/users": {
-      get: {
-        produces: ["application/json"],
-        responses: { "200": { description: "ok", schema: { type: "array", items: { $ref: "#/definitions/User" } } } },
-      },
-    },
-  },
-  definitions: {
-    User: { type: "object", required: ["email"], properties: { email: { type: "string" }, age: { type: "integer" } } },
-  },
-};
+import { openapi3, swagger2 } from "./fixtures.js";
 
 /** Vérifie que le code généré compile réellement comme un fichier .d.ts */
 async function assertValidDts(code: string): Promise<void> {
