@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { generate, type GenerateOptions } from "./generate.js";
-import { startServer } from "./server.js";
+import { startServer } from "./local-server.js";
 
 const HELP = `
 openapi-dts — génère des déclarations TypeScript (.d.ts) depuis un Swagger / OpenAPI
