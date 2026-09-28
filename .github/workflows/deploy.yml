@@ -46,8 +46,8 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Since of vite-plugin-singlefile, dist/ contains only a fully self-contained index.html
-          path: './dist'
+          # public/ contient la page (index.html) et le générateur navigateur (generator.js, produit par npm run build)
+          path: './public'
 
       - name: Deploy to GitHub Pages
         id: deployment
